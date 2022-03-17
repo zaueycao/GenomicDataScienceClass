@@ -1,0 +1,150 @@
+def readGenome(filename):
+    genome = ''
+    with open(filename, 'r') as f:
+        for line in f:
+            # ignore header line with genome information
+            if not line[0] == '>':
+                genome += line.rstrip()
+    return genome
+g = readGenome('lambda_virus.fa')
+
+## parse DNA sequence from FASTQ form 
+from re import S
+
+
+def readFastq(filename):
+    sequences = []
+    qualities = []
+    with open(filename, 'r') as fh:
+        while True:
+            fh.readline()  # skip name line
+            seq = fh.readline().rstrip()  # read base sequence
+            fh.readline()  # skip placeholder line
+            qual = fh.readline().rstrip() # base quality line
+            if len(seq) == 0:
+                break
+            sequences.append(seq)
+            qualities.append(qual)
+    return sequences, qualities
+
+seq, qual = readFastq('ERR037900_1.first1000.fastq')
+## convert the qualitity score to the normal score
+def phred33ToQ(qual):
+    return ord(qual) - 33
+
+def createHist(qualities):
+    # Create a histogram of quality scores
+    hist = [0]*50 # set the highest quality score as the maximum, so the position of his[x] x indicates the quality score
+    for qual in qualities:
+        for phred in qual:
+            q = phred33ToQ(phred)
+            hist[q] += 1
+    return hist
+h = createHist(qual)
+print(h)
+ ## graph the function 
+import matplotlib.pyplot as plt
+plt.plot(range(len(h)), h)
+plt.show()
+## find the min index
+def findGCByPos(reads):
+    ''' Find the GC ratio at each position in the read '''
+    # Keep track of the number of G/C bases and the total number of bases at each position
+    gc = [0] * 100 # here set the length as 100 because we have 100 bases each read
+    totals = [0] * 100
+    for read in reads:
+        for i in range(len(read)):
+            if read[i] == 'C' or read[i] == 'G':
+                gc[i] += 1
+            totals[i] += 1
+    # Divide G/C counts by total counts to get the average at each position
+    for i in range(len(gc)):
+        if totals[i] > 0:
+            gc[i] /= float(totals[i])
+    return gc
+
+gc = findGCByPos(seq)
+gc
+plt.plot(range(len(gc)), gc)
+plt.show()
+
+index_min = min(range(len(gc)), key=gc.__getitem__)
+index_min
+
+
+
+# reverse the DNA sequence
+def reverseComplement(s):
+    complement = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', 'N': 'N'}
+    return [complement[base] for base in reversed(s)]
+    # t = ''
+    # for base in s:
+    #         t = complement[base] + t
+    # return t
+## check for sequences matches
+def naive(p, g):  
+    
+    occurrences = []
+    numbers_of_occurence = 0
+    for i in range(len(g) - len(p) + 1):  # loop over alignments
+        match = True
+        for j in range(len(p)):  # loop over characters
+            if g[i+j] != p[j]:  # compare characters
+                match = False
+                break
+        if match:
+            occurrences.append(i)  # all chars matched; record
+            numbers_of_occurence += 1
+    return occurrences
+
+ 
+def naive_with_rc(p, g):
+    reverse_p = reverseComplement(p)
+    print(reverse_p)
+    occurrences_r = []
+    numbers_of_occurence_reverse = 0
+    for i in range(len(g) - len(reverse_p) + 1):  # loop over alignments
+        match = True
+        for j in range(len(reverse_p)):  # loop over characters
+            if g[i+j] != reverse_p[j]:  # compare characters
+                match = False
+                break
+        if match:
+            occurrences_r.append(i)  # all chars matched; record
+            numbers_of_occurence_reverse += 1
+    return occurrences_r
+def is_same(p):
+    y = reverseComplement(p)
+    for i in range(len(p)):
+        if p[i] != y[i]:
+            return False
+    return True
+
+def naive_2mm (p,g):
+    occurrences = []
+    numbers_of_occurence = 0
+    for i in range(len(g) - len(p) + 1):  # loop over alignments
+        match = True
+        max_wrong = 0
+        for j in range(len(p)):  # loop over characters
+            if g[i+j] != p[j]:
+                max_wrong +=1
+                if max_wrong >=3:
+                    break   
+        if max_wrong < 3 :
+            occurrences.append(i)
+            numbers_of_occurence +=1
+    return occurrences
+                        
+
+def print_occurrences(p,g):
+    occurences = naive(p,g)
+    occurences_reverse = naive_with_rc(p,g)
+    if is_same(p):
+        print (occurences)
+    else: 
+        print(occurences)
+        print(occurences_reverse)
+
+result = naive_2mm('AGGAGGTT',g)        
+print(result) 
